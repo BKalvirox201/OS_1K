@@ -11,11 +11,24 @@ pub fn build(b: *std.Build) void {
     });
 
     const exe = b.addExecutable(.{
-        .name = "foo",
+        .name = "SaltyOS",
         .root_module = exe_mod,
     });
 
     b.installArtifact(exe);
-    const run_cmd = b.addRunArtifact(exe);
-    run_cmd.step.dependOn(b.getInstallStep());
+    const run_cmd = b.addSystemCommand(&.{
+        "qemu-system-riscv32",
+    });
+    run_cmd.addArgs(&.{
+        "-machine",
+        "virt",
+        "-bios",
+        "default",
+        "-nographic",
+        "-serial",
+        "mon:stdio",
+        "--no-reboot",
+    });
+    const run_step = b.step("run", "Run QEMU");
+    run_step.dependOn(&run_cmd.step);
 }
