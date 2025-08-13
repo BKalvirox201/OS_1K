@@ -1,24 +1,23 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
-
-    const exe_mod = b.createModule(.{
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+    const elf = b.addExecutable(.{
+        .name = "kernel.elf",
+        .root_source_file = b.path("src/kernel.zig"),
+        .target = b.resolveTargetQuery(.{
+            .cpu_arch = .riscv32,
+            .os_tag = .freestanding,
+            .abi = .none,
+        }),
+        .optimize = .ReleaseSmall,
+        .strip = false,
     });
+    elf.entry = .disabled;
+    elf.setLinkerScript(b.path("src/kernel.ld"));
 
-    const exe = b.addExecutable(.{
-        .name = "SaltyOS",
-        .root_module = exe_mod,
-    });
+    b.installArtifact(elf);
 
-    b.installArtifact(exe);
-    const run_cmd = b.addSystemCommand(&.{
-        "qemu-system-riscv32",
-    });
+    const run_cmd = b.addSystemCommand(&.{"qemu-system-riscv32"});
     run_cmd.addArgs(&.{
         "-machine",
         "virt",
@@ -28,7 +27,10 @@ pub fn build(b: *std.Build) void {
         "-serial",
         "mon:stdio",
         "--no-reboot",
+        "-kernel",
     });
+    run_cmd.addArtifactArg(elf);
+
     const run_step = b.step("run", "Run QEMU");
     run_step.dependOn(&run_cmd.step);
 }
